@@ -1,5 +1,5 @@
 {
-  "name": "@onejs/onecore",
+  "name": "@onejs-dev/onecore",
   "version": "0.0.1",
   "description": "Core package for oneJS.",
   "main": "oneCore.js",
