@@ -9,7 +9,8 @@
 import React from 'react';
 
 //Web vs Native specific differences
-import {ONESPECIFICS} from '@onejs-dev/onespecifics'
+import {ONESPECIFICS} from '@onejs-dev/onespecifics';
+let {doc, collection, addDoc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot} = await import('firebase/firestore');
 
 /**
 * @description All the module internal global variables are properties of the ONEJS object. 
