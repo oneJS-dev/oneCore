@@ -10,7 +10,12 @@ import React from 'react';
 
 //Web vs Native specific differences
 import {ONESPECIFICS} from '@onejs-dev/onespecifics';
-let {doc, collection, addDoc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot} = await import('firebase/firestore');
+
+//Conditionally import Firestore
+try {var {doc, collection, addDoc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot} = await import('firebase/firestore');}
+catch (warning) {
+    // console.warn("No Firestore module imported. If this is intentional, please disregard this warning: ", warning)
+}
 
 /**
 * @description All the module internal global variables are properties of the ONEJS object. 
@@ -37,7 +42,7 @@ var ONEJS = {
     appName: '',               //Name of the app. Used by indexedDB to avoid naming collisions
     appText: {},               //All the app texts to provide translation functionality
     os: window ? 'web' : (global ? 'native' : undefined),//Current operating system for the app
-    theme: {}                  //RN: Theme variable values for the different flavors
+    theme: {default: {}}       //RN: Theme variable values for the different flavors
 };
 
 
@@ -1503,17 +1508,22 @@ export const app = ({name, template, state, theme, themeSetup, text, firestore})
 * @example
 * ```javascript 
 *   const myFlavor: {primaryColor: 'blue', radius: '3px', shadow: 'none'};
-*   readFlavor(myFlavor); //Return {'--one-primaryColor': 'blue', '--one-radius': '3px', '--one-shadow': 'none'}
+*   readFlavorCSS(myFlavor); //Return {'--one-primaryColor': 'blue', '--one-radius': '3px', '--one-shadow': 'none'}
 * ```
 * @returns {Object} - The css variables with their corresponding values.
 */
-const readFlavor = (flavor) => {
-    if(!flavor) {console.error('Incorrect flavor: '+ flavor);return;} //Otherwise the component will set unnecesary data
+const readFlavorCSS = (flavor) => {
+    if(!flavor) {console.error('readFlavorCSS: Incorrect flavor: '+ flavor);return;} //Otherwise the component will set unnecesary data
     let flavorVariables = {};
     Object.entries(flavor).forEach(([key, value]) => {
         if(typeof value === 'string') flavorVariables['--one-' + key] = value;
     });
     return flavorVariables;
+}
+
+export const readFlavor = (flavor) => {
+    if(!flavor) {console.error('readFlavor: Incorrect flavor: '+ flavor);return {};} 
+    return ONEJS[flavor] ?? ONEJS['default'];
 }
 
 /** 
@@ -1600,11 +1610,17 @@ export const setupTheme = ({theme, themeSetup=oneThemeSetup, themeCollection=one
     document.body.classList.add(ONESPECIFICS.css(themeSetup)); //Adds the main css page to the document body
 
     Object.entries(theme).forEach(([flavorId, flavorValue]) => { //Transform each of the themes in css variables stored in a class. This can now be applied to any component
-        ONEJS.emotionCSSClasses['flavor'+flavorId] = ONESPECIFICS.css(readFlavor(flavorValue));
+        ONEJS.emotionCSSClasses['flavor'+flavorId] = ONESPECIFICS.css(readFlavorCSS(flavorValue));
         if(flavorId === 'default') {
             Object.entries(flavorValue).forEach(([key, value]) => { //Sets up the value of the css variables for the default theme
-                if(typeof value === 'string') {document.documentElement.style.setProperty('--one-' + key, value);}
+                if(typeof value === 'string') {document.documentElement.style.setProperty('--one-' + key, value);ONEJS.theme[flavorId][key] = themeVariable(key, value);}
             });
+        }
+        else {
+            ONEJS.theme[flavorId] = {};
+            Object.entries(flavorValue).forEach(([key, value]) => { //Sets up the theme ONEJS variable
+                ONEJS.theme[flavorId][key] = themeVariable(key, value);
+            }); 
         }
     });
 }
