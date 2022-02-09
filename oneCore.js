@@ -1523,7 +1523,7 @@ const readFlavorCSS = (flavor) => {
 
 export const readFlavor = (flavor) => {
     if(!flavor) {console.error('readFlavor: Incorrect flavor: '+ flavor);return {};} 
-    return ONEJS[flavor] ?? ONEJS['default'];
+    return ONEJS.theme[flavor] ?? ONEJS.theme['default'];
 }
 
 /** 
