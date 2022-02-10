@@ -1314,7 +1314,11 @@ const EnhancedComponent = (ComponentFunctionOrTag) => ({structure, flavor, style
         if(attributes['class']) {Array.isArray(attributes['class']) ? classArray.push(...attributes['class']) : classArray.push(attributes['class']); delete attributes['class']}
         
         //Add flavor class to the class array
-        if(flavor) {
+        if(flavor.flavor) {
+            if(Array.isArray(flavor.flavor)) {classArray.push(...flavor.flavor.map(flavorId => ONEJS.emotionCSSClasses['flavor'+flavorId]));}
+            else classArray.push(ONEJS.emotionCSSClasses['flavor'+flavor.flavor]);
+        }
+        else if(flavor) {//In the future remove
             if(Array.isArray(flavor)) {classArray.push(...flavor.map(flavorId => ONEJS.emotionCSSClasses['flavor'+flavorId]));}
             else classArray.push(ONEJS.emotionCSSClasses['flavor'+flavor]);
         }
@@ -1523,8 +1527,16 @@ const readFlavorCSS = (flavor) => {
 
 export const readFlavor = (flavor) => {
     if(!flavor) {console.error('readFlavor: Incorrect flavor: '+ flavor);return {};} 
-    return ONEJS.theme[flavor] ?? ONEJS.theme['default'];
+    let flavorObject = {flavor: flavor};//Used inside EnhancedComponent to read the flavor CSS and add a class with the variable values.
+    if(Array.isArray(flavor)) {//Flavor is an array of strings: Increasing priority from left to right
+        flavor.forEach((flavor) => {flavorObject = {...flavorObject, ...ONEJS.theme[flavor]} });
+        return {...ONEJS.theme['default'], ...flavorObject};
+    }
+
+    return ONEJS.theme[flavor] ? {...ONEJS.theme['default'], ...ONEJS.theme[flavor]} : ONEJS.theme['default'];
 }
+
+export const defaultFlavor = ONEJS.theme['default'];
 
 /** 
 * @description Returns the css variable for the corresponding theme variable name. If a value is provided, also sets the default value.
