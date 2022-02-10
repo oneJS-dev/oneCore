@@ -1314,7 +1314,7 @@ const EnhancedComponent = (ComponentFunctionOrTag) => ({structure, flavor, style
         if(attributes['class']) {Array.isArray(attributes['class']) ? classArray.push(...attributes['class']) : classArray.push(attributes['class']); delete attributes['class']}
         
         //Add flavor class to the class array
-        if(flavor.flavor) {
+        if(flavor?.flavor) {
             if(Array.isArray(flavor.flavor)) {classArray.push(...flavor.flavor.map(flavorId => ONEJS.emotionCSSClasses['flavor'+flavorId]));}
             else classArray.push(ONEJS.emotionCSSClasses['flavor'+flavor.flavor]);
         }
