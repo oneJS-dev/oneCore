@@ -43,7 +43,7 @@ var ONEJS = {
     appText: {},               //All the app texts to provide translation functionality
     os: window ? 'web' : (global ? 'native' : undefined),//Current operating system for the app
     theme: {default: {}},      //RN: Theme variable values for the different flavors
-    style: {},
+    style: {}, 
     iconGradients: {}
 };
 
