@@ -42,7 +42,9 @@ var ONEJS = {
     appName: '',               //Name of the app. Used by indexedDB to avoid naming collisions
     appText: {},               //All the app texts to provide translation functionality
     os: window ? 'web' : (global ? 'native' : undefined),//Current operating system for the app
-    theme: {default: {}}       //RN: Theme variable values for the different flavors
+    theme: {default: {}},      //RN: Theme variable values for the different flavors
+    style: {},
+    iconGradients: {}
 };
 
 
@@ -58,8 +60,8 @@ var ONEJS = {
 * @returns {String} Returns the user's local language.
 */
 export const getLanguage = () => {
-    let localLanguage = localStorage.getItem('oneLanguage'); //Maybe concatenate app name provided in app().
-    let userLanguage = ONESPECIFICS.userLanguage;
+    const localLanguage = localStorage.getItem('oneLanguage'); //Maybe concatenate app name provided in app().
+    const userLanguage = ONESPECIFICS.userLanguage;
     return localLanguage ?? userLanguage;
 }
 /** 
@@ -144,8 +146,8 @@ export const readText = (id, language=getLanguage()) => {
 export const matchUrl = (url) => {
     if(!url) return false;
     //Filter added to remove the empty strings after split. E.g.: Root path is "/" and split converts to ['', '']. Filter turns into []
-    let actualUrl = decodeURI(location.pathname + location.search).split('/').filter(Boolean); //this url will always start with '/'
-    let targetUrl = url.split('/').filter(Boolean);
+    const actualUrl = decodeURI(location.pathname + location.search).split('/').filter(Boolean); //this url will always start with '/'
+    const targetUrl = url.split('/').filter(Boolean);
     if(targetUrl.length - actualUrl.length > 1 || (targetUrl.length - actualUrl.length === 1 && targetUrl[targetUrl.length-1] !== '*')) return false;
     //Return false if the target url does not match at any stage
     for (let i = 0; i < actualUrl.length; i++) {
@@ -172,13 +174,12 @@ export const matchUrl = (url) => {
 */
 const readUrlData = url => {
     if(!matchUrl(url.replace(':', '*'))) return;
-    let actualUrl = decodeURI(location.pathname + location.search).split('/').filter(Boolean);
-    let targetUrl = url.split('/').filter(Boolean);
-    let data;
+    const actualUrl = decodeURI(location.pathname + location.search).split('/').filter(Boolean);
+    const targetUrl = url.split('/').filter(Boolean);
     for(let i = 0; i < targetUrl.length; i++) {
         if(targetUrl[i] === ':') return actualUrl[i];
     }
-    return data;
+    return;
 }
 
 /** 
@@ -224,7 +225,7 @@ const readPathWithState = (path) => {
     let finalPath = path;
     //Path Includes State Variable
     if(finalPath.includes('@')) {
-        let stateId = readStateId(finalPath); 
+        const stateId = readStateId(finalPath); 
         if(read(stateId) != null) finalPath = finalPath.replace('@' + stateId, read(stateId).toString());
         else return;//Returns undefined so that 'source/storage' functions avoid reading/writing from/to database
     }
@@ -244,7 +245,7 @@ const readPathWithState = (path) => {
 */
 const readStateId = (path) => {
     if(!path.includes('@')) return;//Returns undefined
-    let splitPath = path.toString().split('@');//splitPath = ['users/', 'userId/other']//The second half is the one containing the variable name
+    const splitPath = path.toString().split('@');//splitPath = ['users/', 'userId/other']//The second half is the one containing the variable name
     return splitPath[1].substring(0, splitPath[1].search('/') > 0 ? splitPath[1].search('/') : splitPath[1].length);//From start until next '/' is found or string end
 }
 
@@ -252,7 +253,7 @@ const readStateId = (path) => {
 // FIREBASE SETUP: This is an optional module that allows the user to work with
 // the Firebase Firestore database in a declarative way.
 // 1. Setup the firestore database in the index.js file
-// let config = {apiKey: "---randomKey---", authDomain: "myApp.firebaseapp.com",
+// const config = {apiKey: "---randomKey---", authDomain: "myApp.firebaseapp.com",
 // const firebaseApp = initializeApp(config);//Initialize firebase      
 // const firestoreDB = getFirestore();// Initialize Cloud Firestore after Firebase
 // 2. Setup the state configuration to use firestore as the source or storge option
@@ -277,19 +278,19 @@ const readStateId = (path) => {
 const firestoreGetDataOnce = async (path, stateId) => {
     if(!read(readStateId(path))) return; //If the state is not defined return undefined
     if(path.split('/').length % 2 === 0) {
-        let docRef = doc(ONEJS.firestore, readPathWithState(path));
+        const docRef = doc(ONEJS.firestore, readPathWithState(path));
         try {
-            let docSnap = await getDoc(docRef);
+            const docSnap = await getDoc(docRef);
             if(docSnap.exists()) {write(stateId, docSnap.data(), 'firestore', 'update');} 
             else {console.error("No such document!");}//doc.data() will be undefined in this case
         }
         catch (error) {console.error("Error getting document:", error);}
     }
     else {
-        let collRef = collection(ONEJS.firestore, readPathWithState(path));
+        const collRef = collection(ONEJS.firestore, readPathWithState(path));
         try {                    
-            let collSnap = await getDocs(collRef);//doc.data() is never undefined for query doc snapshots
-            let result = [];
+            const collSnap = await getDocs(collRef);//doc.data() is never undefined for query doc snapshots
+            const result = [];
             collSnap.forEach((doc) => {result.push({...{id:doc.id}, ...doc.data()})});//Adding the id to the result array for each document
             write(stateId, result, 'firestore', 'update');
         } catch (error) {console.error("Error reading snapshot: ", error);}                
@@ -325,14 +326,14 @@ const firestoreRead = (path) => (stateId, context='') => {
     else if(context === 'initialize'){//Subscribe to firestore updates using 'onSnapshot'
         //If the path is even, Firestore DOCUMENT is retrieved
         if(path.split('/').length % 2 === 0) {
-            try {let unsubscribe = onSnapshot(doc(ONEJS.firestore, path), (doc) => {write(stateId, doc.data(), 'firestore', 'update');});}
+            try {const unsubscribe = onSnapshot(doc(ONEJS.firestore, path), (doc) => {write(stateId, doc.data(), 'firestore', 'update');});}
             catch (error) {console.error("Error reading snapshot: ", error);}
         }
         //If the path is odd, Firestore COLLECTION is retrieved (list of documents within a collection)
         else {
             try {
-                let unsubscribe = onSnapshot(collection(ONEJS.firestore, path), (snapshot) => {
-                    let result = [];
+                const unsubscribe = onSnapshot(collection(ONEJS.firestore, path), (snapshot) => {
+                    const result = [];
                     snapshot.forEach((doc) => {result.push({...{id:doc.id}, ...doc.data()})});  //Adding the id to the result array for each document
                     write(stateId, result, 'firestore', 'update'); //If storage is also set we will run into conflicts
                 });
@@ -367,7 +368,7 @@ const firestoreRead = (path) => (stateId, context='') => {
 const firestoreWrite = (path) => async (data, context = '', documentId) => {
     if(context === 'firestore') return;//This means firestore has read a value and is updating the state, no need to write to the database 
     if(!path) return;
-    let finalPath = documentId != null ? readPathWithState(path).concat('/', documentId.toString()) : readPathWithState(path);
+    const finalPath = documentId != null ? readPathWithState(path).concat('/', documentId.toString()) : readPathWithState(path);
     //If the path is even, modify the document
     if(finalPath.split('/').length % 2 === 0) {
         try {const docRef = await setDoc(doc(ONEJS.firestore, finalPath), {...{timestamp: new Date().getTime()}, ...data});}
@@ -393,7 +394,7 @@ const firestoreWrite = (path) => async (data, context = '', documentId) => {
 */
 const firestoreRemove = (path) => async (documentId) => {
     if(!path) return;
-    let finalPath = documentId != null ? readPathWithState(path).concat('/', documentId.toString()) : readPathWithState(path);
+    const finalPath = documentId != null ? readPathWithState(path).concat('/', documentId.toString()) : readPathWithState(path);
     //If the path is even, remove the document
     if(finalPath.split('/').length % 2 === 0) {
         try {const docRef = await deleteDoc(doc(ONEJS.firestore, finalPath));}
@@ -404,9 +405,9 @@ const firestoreRemove = (path) => async (documentId) => {
         //To delete an entire collection or subcollection in Cloud Firestore, 
         //retrieve all the documents within the collection or subcollection and delete them
         //Deleting collections from a Web client is not recommended.
-        let collRef = collection(ONEJS.firestore, readPathWithState(path));
+        const collRef = collection(ONEJS.firestore, readPathWithState(path));
         try {                    
-            let collSnap = await getDocs(collRef);
+            const collSnap = await getDocs(collRef);
             collSnap.forEach(async docData => await deleteDoc(doc(ONEJS.firestore, finalPath + '/' + docData.id)));
         } catch (error) {console.error("Error reading snapshot: ", error);}  
     }    
@@ -455,11 +456,11 @@ const indexedDBRead = (path) => (stateId, context='') => {
     if(path.includes('@') && context === 'initialize') {//Subscribes for state changes during 'setupState' initialization
         window.addEventListener(readStateId(path) + 'stateChange',  async (e) => {//Note: e.detail also contains the newState
             if(!read(readStateId(path))) return;//If the state is not defined return.
-            let pathSegments = readPathWithState(path).split('/').filter(Boolean);
+            const pathSegments = readPathWithState(path).split('/').filter(Boolean);
             try {
-                let transaction = ONEJS.idb.transaction(pathSegments[0], 'readonly');
-                let store = transaction.objectStore(pathSegments[0]);
-                let request = pathSegments.length > 1 ? store.get(pathSegments[1]) : store.getAll();//Depending of path segments, read entire collection or specific document
+                const transaction = ONEJS.idb.transaction(pathSegments[0], 'readonly');
+                const store = transaction.objectStore(pathSegments[0]);
+                const request = pathSegments.length > 1 ? store.get(pathSegments[1]) : store.getAll();//Depending of path segments, read entire collection or specific document
                 request.onsuccess = function(data) {write(stateId, request.result, 'indexedDB', 'update');};
                 request.onerror = function(e) {console.error('Error: ', e.target.error.name);};
             } 
@@ -468,11 +469,11 @@ const indexedDBRead = (path) => (stateId, context='') => {
     }
     // As opposed to Firestore's 'onSnapshot' method, there is no option to observe changes in indexedDB. Therefore the 'read' function
     // is triggered everytime the 'write' function is called.
-    let pathSegments = readPathWithState(path).split('/').filter(Boolean);
+    const pathSegments = readPathWithState(path).split('/').filter(Boolean);
     try {
-        let transaction = ONEJS.idb.transaction(pathSegments[0], 'readonly');
-        let store = transaction.objectStore(pathSegments[0]);
-        let request = pathSegments.length > 1 ? store.get(pathSegments[1]) : store.getAll();//Depending of path segments, read entire collection or specific document
+        const transaction = ONEJS.idb.transaction(pathSegments[0], 'readonly');
+        const store = transaction.objectStore(pathSegments[0]);
+        const request = pathSegments.length > 1 ? store.get(pathSegments[1]) : store.getAll();//Depending of path segments, read entire collection or specific document
         request.onsuccess = function(data) {write(stateId, request.result, 'indexedDB', 'update');};
         request.onerror = function(e) {console.error('Error: ', e.target.error.name);};
     }
@@ -500,16 +501,16 @@ const indexedDBRead = (path) => (stateId, context='') => {
 const indexedDBWrite = (path) => (data, context='', documentId) => {
     if(context === 'indexedDB') return;
     if(!path) return;
-    let pathSegments = readPathWithState(path).split('/').filter(Boolean);
+    const pathSegments = readPathWithState(path).split('/').filter(Boolean);
     if(documentId != null) {//Update specific document within collection 
         pathSegments[1] = documentId;
         data.id = documentId;
     }
     try {
-        let transaction = ONEJS.idb.transaction(pathSegments[0], 'readwrite');
-        let store = transaction.objectStore(pathSegments[0]);
+        const transaction = ONEJS.idb.transaction(pathSegments[0], 'readwrite');
+        const store = transaction.objectStore(pathSegments[0]);
         //Due to the { keyPath: "id", autoIncrement: true } configuration .put() function does not need the document id, it needs to be contained in the data object
-        let request = pathSegments.length > 1 ? store.put(data) : store.add(data);//To add to collection or update document
+        const request = pathSegments.length > 1 ? store.put(data) : store.add(data);//To add to collection or update document
         request.onerror = function(e) {console.error('Error: ', e.target.error.name);};
     } 
     catch(error) {console.error("Error writing document:", error);}
@@ -529,12 +530,12 @@ const indexedDBWrite = (path) => (data, context='', documentId) => {
 */
 const indexedDBRemove = (path) => (documentId) => {
     if(!path) return;
-    let pathSegments = readPathWithState(path).split('/').filter(Boolean);
+    const pathSegments = readPathWithState(path).split('/').filter(Boolean);
     if(documentId != null) pathSegments[1] = parseInt(documentId);
     try {
-        let transaction = ONEJS.idb.transaction(pathSegments[0], 'readwrite');
-        let store = transaction.objectStore(pathSegments[0]);
-        let request = pathSegments.length > 1 ? store.delete(parseInt(pathSegments[1])) : store.clear();//To remove entire collection or specific document
+        const transaction = ONEJS.idb.transaction(pathSegments[0], 'readwrite');
+        const store = transaction.objectStore(pathSegments[0]);
+        const request = pathSegments.length > 1 ? store.delete(parseInt(pathSegments[1])) : store.clear();//To remove entire collection or specific document
         request.onerror = function(e) {console.error('Error: ', e.target.error.name);};
     } 
     catch(error) {console.error("Error removing document:", error);}
@@ -570,9 +571,9 @@ const indexedDBRemove = (path) => (documentId) => {
 */
 const localStorageRead = (path) => (stateId) => {
     try {        
-        let jsonValue = localStorage.getItem(path); //Note that variable paths are not accepted here. Virtually no use-case for this.
+        const jsonValue = localStorage.getItem(path); //Note that variable paths are not accepted here. Virtually no use-case for this.
         if(jsonValue === null) return;              //The Web Storage Specification requires that .getItem() returns null for an unknown key
-        let data = JSON.parse(jsonValue);           //Using JSON.parse and stringify() allows to store non-string data.
+        const data = JSON.parse(jsonValue);           //Using JSON.parse and stringify() allows to store non-string data.
         write(stateId, data, 'localStorage', 'update');
     } 
     catch(error) {console.error("Error getting document:", error);}
@@ -592,7 +593,7 @@ const localStorageRead = (path) => (stateId) => {
 const localStorageWrite = (path) => (data, context ='') => {
     if(context === 'localStorage') return;
     try {
-        let jsonData = JSON.stringify(data)
+        const jsonData = JSON.stringify(data)
         localStorage.setItem(path, jsonData);
     } 
     catch (error) {console.error("Error setting document:", error);} 
@@ -640,9 +641,9 @@ const localStorageRemove = (path) => () => {
 */
 const nativeStorageRead = (path) => async (stateId) => {
     try { 
-        let jsonValue = await ONESPECIFICS.AsyncStorage.getItem(path);   //Note that variable paths are not accepted here. Virtually no use-case for this.
+        const jsonValue = await ONESPECIFICS.AsyncStorage.getItem(path);   //Note that variable paths are not accepted here. Virtually no use-case for this.
         if(jsonValue === null) return;                      //The Async Storage Specification requires that .getItem() returns null for an unknown key
-        let data = JSON.parse(jsonValue);                   //Using JSON.parse and stringify() allows to store non-string data.
+        const data = JSON.parse(jsonValue);                   //Using JSON.parse and stringify() allows to store non-string data.
         write(stateId, data, 'AsyncStorage', 'update');
     } 
     catch(error) {console.error("Error getting document:", error);}
@@ -662,7 +663,7 @@ const nativeStorageRead = (path) => async (stateId) => {
 const nativeStorageWrite = (path) => async (data, context ='') => {
     if(context === 'AsyncStorage') return;
     try {
-        let jsonData = JSON.stringify(data);
+        const jsonData = JSON.stringify(data);
         await ONESPECIFICS.AsyncStorage.setItem(path, jsonData);
     } 
     catch (error) {console.error("Error setting document:", error);} 
@@ -734,7 +735,7 @@ export const read = (stateId) => {
 * ```
 */ 
 const write = (stateId, newValue, context = '', action='update', documentId) => {
-    let oldValue = ONEJS.currentState[stateId].value;
+    const oldValue = ONEJS.currentState[stateId].value;
     if(oldValue === newValue) return;
     
     if(action === 'add') {//Adds value to array state variable
@@ -786,9 +787,9 @@ const write = (stateId, newValue, context = '', action='update', documentId) => 
 * ```
 */ 
 export const add = (stateId) => event => {
-    let newValue = (event?.target) ? (event.target.type === 'checkbox' ? event.target.checked : event.target.value) : event;
-    let context = 'app';//External context
-    let action = 'add';
+    const newValue = (event?.target) ? (event.target.type === 'checkbox' ? event.target.checked : event.target.value) : event;
+    const context = 'app';//External context
+    const action = 'add';
     write(stateId, newValue, context, action);
 }
 
@@ -808,9 +809,9 @@ export const add = (stateId) => event => {
 */
 export const update = (stateId, documentId) => (event) => {
     // if(typeof constValue !== 'undefined') write(stateId, constValue);//For the moment not adding this option update = (stateId, constValue) => (event), it is anti-pattern
-    let newValue = (event?.target) ? (event.target.type === 'checkbox' ? event.target.checked : event.target.value) : event;
-    let context = 'app';//External context
-    let action = documentId != null ? 'updateArray' : 'update';//Set the value within an array or update the value entirely
+    const newValue = (event?.target) ? (event.target.type === 'checkbox' ? event.target.checked : event.target.value) : event;
+    const context = 'app';//External context
+    const action = documentId != null ? 'updateArray' : 'update';//Set the value within an array or update the value entirely
     write(stateId, newValue, context, action, documentId);
 }
 
@@ -826,9 +827,9 @@ export const update = (stateId, documentId) => (event) => {
 * ```
 */
 export const remove = (stateId, documentId) => { 
-    let newValue = undefined;
-    let context = 'app';//External context
-    let action = 'remove';//Set the value within an array or update the value entirely
+    const newValue = undefined;
+    const context = 'app';//External context
+    const action = 'remove';//Set the value within an array or update the value entirely
     write(stateId, newValue, context, action, documentId);
 }
 
@@ -870,8 +871,8 @@ export const remove = (stateId, documentId) => {
 * ```
 */
 const setupState = (config) => {
-    let indexedDBCollections = [];  //All the collections required to be initialized for indexedDB 
-    let indexedDBStateIds = {};     //All the state id-s that need to be updated with indexedDB data
+    const indexedDBCollections = [];  //All the collections required to be initialized for indexedDB 
+    const indexedDBStateIds = {};     //All the state id-s that need to be updated with indexedDB data
 
     //1. Create all the state variables to make sure they exist
     Object.entries(config).forEach(([stateId, value]) => {
@@ -904,7 +905,7 @@ const setupState = (config) => {
                 ONEJS.currentState[stateId].storage = localStorageWrite(value.storage.local);
                 ONEJS.currentState[stateId].removal = localStorageRemove(value.storage.local);
             }
-            else if(ONESPECIFICS.os === 'native') {
+            else if(ONESPECIFICS.os === 'ios' || ONESPECIFICS.os === 'android') {
                 ONEJS.currentState[stateId].storage = nativeStorageWrite(value.storage.local);
                 ONEJS.currentState[stateId].removal = nativeStorageRemove(value.storage.local);
             }
@@ -939,7 +940,7 @@ const setupState = (config) => {
         //If defined by the user, use Local Storage as the source option
         else if(value?.source?.local) {
             if(ONESPECIFICS.os === 'web') localStorageRead(value.source.local)(stateId);
-            else if(ONESPECIFICS.os === 'native') nativeStorageRead(value.source.local)(stateId);
+            else if(ONESPECIFICS.os === 'ios' || ONESPECIFICS.os === 'android') nativeStorageRead(value.source.local)(stateId);
         }
         //If defined by the user, use any function to set the storage. It will be called on write()
         //Otherwise, user can use any function to source data for the state variable. It will be called once during setupState, the user should subscribe to changes to the source in this function to update the state. 
@@ -956,10 +957,10 @@ const setupState = (config) => {
             return;
         }
         //Check the current version and the collections setup in that version. If the collections change, increase the version number and store those collections
-        let versionString = localStorage.getItem('oneIndexedDBVersion' + ONEJS.appName);
+        const versionString = localStorage.getItem('oneIndexedDBVersion' + ONEJS.appName);
         let version = versionString ? parseInt(versionString) : undefined;
         let collectionsJson = localStorage.getItem('oneIndexedDBCollections' + ONEJS.appName);
-        let collections = collectionsJson != null ? JSON.parse(collectionsJson) : undefined;
+        const collections = collectionsJson != null ? JSON.parse(collectionsJson) : undefined;
         
         if(!collections) {//No collections existing: Store collections and upgrade version
             collectionsJson = JSON.stringify(indexedDBCollections)
@@ -979,7 +980,7 @@ const setupState = (config) => {
         }
 
         // indexedDB.deleteDatabase('oneIndexedDB' + ONEJS.appName);
-        let openRequest = indexedDB.open('oneIndexedDB' + ONEJS.appName, version);//Open the database connection request
+        const openRequest = indexedDB.open('oneIndexedDB' + ONEJS.appName, version);//Open the database connection request
 
         //Called for new database or version number increase. The collections to be used (object stores) are declared here.
         //This is the only place to alter the structure of the database: create/remove object stores.
@@ -1070,7 +1071,7 @@ export const goToState = (statePosition) => {
 * @todo Until goToState() is fixed it is not production ready.
 */
 export const nextState = () => {
-    let statePosition = ONEJS.stateHistoryPosition - 1;
+    const statePosition = ONEJS.stateHistoryPosition - 1;
     goToState(statePosition);
 }
 /** 
@@ -1082,7 +1083,7 @@ export const nextState = () => {
 * @todo Until goToState() is fixed it is not production ready.
 */
 export const previousState = () => {
-    let statePosition = ONEJS.stateHistoryPosition + 1;
+    const statePosition = ONEJS.stateHistoryPosition + 1;
     goToState(statePosition);
 }
 /** 
@@ -1190,7 +1191,8 @@ const memoizeComponent = (ComponentFunction, memoized, name) => {
 * @returns {ReactElement} - If memoized, the memoized component. Otherwise, the original component.
 */
 const CreateWrappedComponentWithStructure = (name, ComponentFunction) => ({...attributes}={}) => structure => {
-    let memoized = memoizeComponent(ComponentFunction, attributes['memoized'], name);
+    const memoized = memoizeComponent(ComponentFunction, attributes['memoized'], name);
+    delete attributes['memoized'];
     return React.createElement(memoized, {structure: structure, ...attributes}, null);
 }
 
@@ -1206,7 +1208,9 @@ const CreateWrappedComponentWithStructure = (name, ComponentFunction) => ({...at
 * @returns {ReactElement} - If memoized, the memoized component. Otherwise, the original component.
 */
 const CreateWrappedComponentWithoutStructure = (name, ComponentFunction) => ({...attributes}={}) => {//Contar por que necesitamos un wrapper para usar los hooks en las funciones
-    return React.createElement(memoizeComponent(ComponentFunction, attributes['memoized'], name), attributes); //React uses property "children" to setup the component internals
+    const memoized = memoizeComponent(ComponentFunction, attributes['memoized'], name);
+    delete attributes['memoized'];
+    return React.createElement(memoized, attributes); //React uses property "children" to setup the component internals
 }
 
 /** 
@@ -1223,8 +1227,9 @@ const CreateWrappedComponentWithoutStructure = (name, ComponentFunction) => ({..
 * @returns {ReactElement} - If memoized, the memoized component. Otherwise, the original component.
 */
 const CreateComponentWithStructure = (name, ComponentFunction) => ({...attributes}={}) => structure => {
-    let uncurriedComponentFunction = ({structure, ...attributes} = {}) => ComponentFunction(attributes)(structure);
-    let memoized = memoizeComponent(uncurriedComponentFunction, attributes['memoized'], name);
+    const uncurriedComponentFunction = ({structure, ...attributes} = {}) => ComponentFunction(attributes)(structure);
+    const memoized = memoizeComponent(uncurriedComponentFunction, attributes['memoized'], name);
+    delete attributes['memoized'];
     return React.createElement(memoized, {structure: structure, ...attributes}, null);
 }
 
@@ -1308,19 +1313,15 @@ export const Component = (name, hasChildren, ComponentFunction) => {
 */
 const EnhancedComponent = (ComponentFunctionOrTag) => ({structure, flavor, style, inlineStyle, onInit, onCreate, onDestroy, onPropertyChange, ...attributes}={}) => {    
     //START CLASS SETUP: Web Specific. No class or className in React Native
-    let classArray = [];
+    const classArray = [];
     if(ONESPECIFICS.os === 'web') {
         //Add instantiation class(es) to the class array
         if(attributes['class']) {Array.isArray(attributes['class']) ? classArray.push(...attributes['class']) : classArray.push(attributes['class']); delete attributes['class']}
         
         //Add flavor class to the class array
-        if(flavor?.flavor) {
-            if(Array.isArray(flavor.flavor)) {classArray.push(...flavor.flavor.map(flavorId => ONEJS.emotionCSSClasses['flavor'+flavorId]));}
-            else classArray.push(ONEJS.emotionCSSClasses['flavor'+flavor.flavor]);
-        }
-        else if(flavor) {//In the future remove
-            if(Array.isArray(flavor)) {classArray.push(...flavor.map(flavorId => ONEJS.emotionCSSClasses['flavor'+flavorId]));}
-            else classArray.push(ONEJS.emotionCSSClasses['flavor'+flavor]);
+        if(flavor?.flavorId) {
+            if(Array.isArray(flavor.flavorId)) {classArray.push(...flavor.flavorId.map(flavorId => ONEJS.emotionCSSClasses['flavor'+flavorId]));}
+            else classArray.push(ONEJS.emotionCSSClasses['flavor'+flavor.flavorId]);
         }
         
         //Add compiled style class to the class array
@@ -1331,11 +1332,11 @@ const EnhancedComponent = (ComponentFunctionOrTag) => ({structure, flavor, style
         if(inlineStyle) attributes['style'] = inlineStyle;
         //END CLASS SETUP        
     }
-    else if(ONESPECIFICS.os === 'native') attributes['style'] = style;//Sylesheet.create does not seem to provide any performance boost, only validation in dev. https://stackoverflow.com/questions/38886020/what-is-the-point-of-stylesheet-create
+    else if(ONESPECIFICS.os === 'ios' || ONESPECIFICS.os === 'android') attributes['style'] = style;//Sylesheet.create does not seem to provide any performance boost, only validation in dev. https://stackoverflow.com/questions/38886020/what-is-the-point-of-stylesheet-create
 
     //*REACT SPECIFIC* Lifecycle functions
     if(onInit) {//Similar to the deprecated ComponentWillMount. The limitation is that domNode is not yet available and cannot be accessed for changes. If this is needed wait until onCreate
-        let initialized = React.useRef();
+        const initialized = React.useRef();
         if(!initialized.current) {
             onInit();
             initialized.current = true;
@@ -1343,7 +1344,7 @@ const EnhancedComponent = (ComponentFunctionOrTag) => ({structure, flavor, style
     }
 
     if(onCreate || onDestroy || onPropertyChange) {
-        let domNode = React.useRef();
+        const domNode = React.useRef();
         attributes['ref'] = domNode;    
         if(onCreate || onDestroy) {//onCreate is equivalent to ComponentDidMount and onDestroy is equivalent to ComponentWillUnmount
             React.useEffect(() => { //React Effect: https://es.reactjs.org/docs/hooks-overview.html
@@ -1361,7 +1362,7 @@ const EnhancedComponent = (ComponentFunctionOrTag) => ({structure, flavor, style
     } 
     
     //If the structure is an array with missing 'key' property, then destructure the input; The structure array with n objects, becomes n arguments in the function
-    if(Array.isArray(structure) && structure.length > 0 && structure[0].key == null) return React.createElement(ComponentFunctionOrTag, attributes, ...structure)
+    if(Array.isArray(structure) && structure?.length > 0 && structure?.[0].key == null) return React.createElement(ComponentFunctionOrTag, attributes, ...structure)
     return React.createElement(ComponentFunctionOrTag, attributes, structure); 
 }
 
@@ -1414,32 +1415,33 @@ export const app = ({name, template, state, theme, themeSetup, text, firestore})
     const appFunction =  ({state, template}={}) => {//Called on every rerender
         Object.entries(state).forEach(([stateId, value]) => {
             //Set default value for state variable
-            let reactInitialState = (value && typeof value === 'object' && value.hasOwnProperty('default')) ? value['default'] : value;
+            const reactInitialState = (value && typeof value === 'object' && value.hasOwnProperty('default')) ? value['default'] : value;
             [ONEJS.reactState[stateId], ONEJS.reactSetState[stateId]] = React.useState(reactInitialState);
             /* React.useState(initialState): Returns an array with a stateful value, and a function to update it. [state, setState()]
                 -initialState: During the initial render, the returned state (state) is the same as the value passed as the first argument (initialState).
                 -setState(): The setState function is used to update the state. It accepts a new state value and enqueues a re-render of the component.
             */    
         });
-        let initialized = React.useRef();
+        const initialized = React.useRef();
         if(!initialized.current) {//Sets up the state for the app for the first time
             setupState(state);
             initialized.current = true;
         }
-        let structure = template(); //Template needs to be a function, otherwise the code is executed and the elements are not wrapped by reactCreateElement function
-        if(Array.isArray(structure) && structure.length > 0 && structure[0].key == null) {
+        if(!ONEJS.appTemplate) ONEJS.appTemplate = template();
+        const structure = template(); //Template needs to be a function, otherwise the code is executed and the elements are not wrapped by reactCreateElement function
+        if(Array.isArray(structure) && structure?.length > 0 && structure?.[0].key == null) {
             return React.createElement(React.Fragment, null, ...structure);//If the structure is an array with missing 'key' property, then destructure the input
         };
         return structure;    
     }
 
-    let AppComponent = React.createElement(appFunction, {state: state, template: template},null);
+    const AppComponent = React.createElement(appFunction, {state: state, template: template},null);
     if(ONESPECIFICS.os === 'web') {
         const container = document.getElementById('app');
         const reactRoot = ReactDOM.createRoot(container);
         reactRoot.render(AppComponent, container);
     }
-    else if(ONESPECIFICS.os === 'native') return AppComponent;
+    else if(ONESPECIFICS.os === 'ios' || ONESPECIFICS.os === 'android') return AppComponent;
     //AppRegistry.registerComponent("MyApp", () => App); This can be used to register the app
 }
 
@@ -1518,19 +1520,26 @@ export const app = ({name, template, state, theme, themeSetup, text, firestore})
 */
 const readFlavorCSS = (flavor) => {
     if(!flavor) {console.error('readFlavorCSS: Incorrect flavor: '+ flavor);return;} //Otherwise the component will set unnecesary data
-    let flavorVariables = {};
+    const flavorVariables = {};
     Object.entries(flavor).forEach(([key, value]) => {
         if(typeof value === 'string') flavorVariables['--one-' + key] = value;
     });
     return flavorVariables;
 }
 
-export const readFlavor = (flavor) => {
+export const readFlavor = (flavor, theme) => {
     if(!flavor) {console.error('readFlavor: Incorrect flavor: '+ flavor);return {};} 
-    let flavorObject = {flavor: flavor};//Used inside EnhancedComponent to read the flavor CSS and add a class with the variable values.
+    if(!theme) theme = ONEJS.theme;
+    else {
+         Object.entries(theme[flavor]).forEach(([key, value]) => { //Sets up the value of the css variables for the default theme
+            theme[flavor][key] = themeVariable(key, value);
+        });
+    }
+    //For web transform into theme variables
+    const flavorObject = {};//Used inside EnhancedComponent to read the flavor CSS and add a class with the variable values.
     if(Array.isArray(flavor)) {//Flavor is an array of strings: Increasing priority from left to right
-        flavor.forEach((flavor) => {flavorObject = {...flavorObject, ...ONEJS.theme[flavor]} });
-        return {...ONEJS.theme['default'], ...flavorObject};
+        flavor.forEach((flavor) => {flavorObject = {...flavorObject, ...theme[flavor]} });
+        return {...theme['default'], ...flavorObject};
     }
 
     return ONEJS.theme[flavor] ? {...ONEJS.theme['default'], ...ONEJS.theme[flavor]} : ONEJS.theme['default'];
@@ -1549,7 +1558,7 @@ export const defaultFlavor = ONEJS.theme['default'];
 * ```javascript 
 *   themeVariable('primaryColor', 'blue'); //Returns 'var(--one-primaryColor, blue)'
 *   Component('myComponent', ({...atributes}={}) => {
-*       let style = {height: themeVariable('customHeight', '30px')}
+*       const style = {height: themeVariable('customHeight', '30px')}
 *       return Text({style: style, ...attributes})('My Component');
 *   }); //User can now create a flavor with 'customHeight' to change the style of the component 
 * ```
@@ -1565,7 +1574,7 @@ export const themeVariable = (variable, value, flavor) => {
     }
     else if(flavor && Array.isArray(flavor)) {
         for(let i = flavor.length-1; i>= 0; i--) {//Applies flavors with from right (most priority) to left (least priority)
-            let flavorItem = flavor[i];
+            const flavorItem = flavor[i];
             if(flavorItem && typeof flavorItem === 'string' && ONEJS.theme[flavorItem]) {
                 return ONEJS.theme?.[flavorItem]?.[variable] ?? (ONEJS.theme?.['default']?.[variable] ?? value);
             }
@@ -1587,7 +1596,7 @@ export const updateThemeVariable = variable => value => {
     //Web
     if(ONESPECIFICS.os === 'web') document.body.setProperty('--one-' + variable, value);
     //Native
-    if(ONESPECIFICS.os === 'native') ONEJS.theme['default'][variable] = value;
+    if(ONESPECIFICS.os === 'ios' || ONESPECIFICS.os === 'android') ONEJS.theme['default'][variable] = value;
 }
 
 /** 
@@ -1603,7 +1612,7 @@ export const updateThemeVariable = variable => value => {
 *   setupTheme({theme: theme, themeSetup: themeSetup});
 * ```
 */
-export const setupTheme = ({theme, themeSetup=oneThemeSetup, themeCollection=oneTheme}={}) => {
+export const setupTheme = ({theme, themeSetup=oneStyle, themeCollection=oneTheme}={}) => {
     /*There are three options: 
         theme = null/undefined -> No theme is used
         theme = <string value> -> User wants to select one of the collection of themes from the theme collection
@@ -1613,29 +1622,99 @@ export const setupTheme = ({theme, themeSetup=oneThemeSetup, themeCollection=one
     else if(typeof theme === 'string' && themeCollection[theme]) theme = themeCollection[theme]; //Selects a certain theme from the collection
 
     //Native
-    if(ONESPECIFICS.os === 'native')  {
+    if(ONESPECIFICS.os === 'ios' || ONESPECIFICS.os === 'android')  {
         ONEJS.theme = theme;
         return;
     }
 
     //Web
-    document.body.classList.add(ONESPECIFICS.css(themeSetup)); //Adds the main css page to the document body
+    
 
     Object.entries(theme).forEach(([flavorId, flavorValue]) => { //Transform each of the themes in css variables stored in a class. This can now be applied to any component
         ONEJS.emotionCSSClasses['flavor'+flavorId] = ONESPECIFICS.css(readFlavorCSS(flavorValue));
-        if(flavorId === 'default') {
-            Object.entries(flavorValue).forEach(([key, value]) => { //Sets up the value of the css variables for the default theme
-                if(typeof value === 'string') {document.documentElement.style.setProperty('--one-' + key, value);ONEJS.theme[flavorId][key] = themeVariable(key, value);}
-            });
-        }
-        else {
-            ONEJS.theme[flavorId] = {};
-            Object.entries(flavorValue).forEach(([key, value]) => { //Sets up the theme ONEJS variable
-                ONEJS.theme[flavorId][key] = themeVariable(key, value);
-            }); 
-        }
+        ONEJS.theme[flavorId] = {flavorId: flavorId};
+        Object.entries(flavorValue).forEach(([key, value]) => { //Sets up the value of the css variables for the default theme
+            ONEJS.theme[flavorId][key] = themeVariable(key, value);
+            if(flavorId === 'default') document.documentElement.style.setProperty('--one-' + key, value);
+            if(key === 'primaryGradient') ONEJS.iconGradients[themeVariable(key, value)] = cssToSvgGradient(value);
+        });
     });
+    document.body.classList.add(ONESPECIFICS.css(themeSetup(ONEJS.theme))); //Adds the main css page to the document body
 }
+export const readGradient = gradientId => {
+    return ONEJS?.iconGradients?.[gradientId];
+}
+export const generateGradient = ({colors, angle=0, locations, svg=false}) => {
+    if(!colors || !Array.isArray(colors) || colors.length < 2) {console.error('generateGradient: "colors" array must contain at least two items');return}
+    if(!locations) locations = colors.map((color, index) => (index / (colors.length - 1)).toFixed(2));
+    else if(locations && locations.length !== colors.length) {console.error('generateGradient: "colors" and "locations" arrays must be the same length.');return}
+
+    if(ONESPECIFICS.os === 'web' && !svg) return 'linear-gradient(' + (90 - angle) + 'deg, ' + colors.join(', ') + ')';//Following the trigonometric circle where the first color is in the origin on the rest in the direction of the angle
+
+    const a = angle * Math.PI / 180;//Input angle is in degrees need to convert to radians
+    const k = Math.ceil(Math.sin(45 * Math.PI / 180) * 10000) / 10000;//Sin(45) = cos(45). Rounding up to avoid obtaining x and y greater than 1.
+    const start = {x: Math.cos(a) > 0 ? 0 : 1, y: Math.sin(a) > 0 ? 1 : 0};
+    const end = {
+        x: Math.abs(Math.cos(a)) < k ? +Math.abs(start.x - Math.abs(Math.cos(a))/k).toFixed(2) : Math.abs(start.x - 1),
+        y: Math.abs(Math.sin(a)) < k ? +Math.abs(start.y - Math.abs(Math.sin(a))/k).toFixed(2) : Math.abs(start.y - 1)
+    };
+    if(start.x + end.x !== 1) {const dif = start.x - end.x; start.x = 0.5 + dif / 2; end.x = 0.5 - dif / 2}; //Reposition to the center
+    if(start.y + end.y !== 1) {const dif = start.y - end.y; start.y = 0.5 + dif / 2; end.y = 0.5 - dif / 2}; //Reposition to the center
+
+    if(svg) return '<svg style="display:block;width:0;height:0;"><defs><linearGradient id="oneJS" x1="' + start.x + '" y1="' + start.y + '" x2="' + end.x + '" y2="' + end.y + '">' + 
+                    locations.map((location, index) => '<stop offset="' + location + '" stop-color="' + colors[index] + '" />').join('') + '</linearGradient></defs></svg>';
+    // if(svg) return '<svg style="display:block;width:0;height:0;"><defs><linearGradient id="oneJS" x1="' + start.x * 100 + '%" y1="' + start.y * 100 + '%" x2="' + end.x * 100 + '%" y2="' + end.y * 100 + '%">' + 
+    //                 locations.map((location, index) => '<stop offset="' + location * 100 + '%" style="stop-color:' + colors[index] + ';" />') + '</defs></svg>';
+    return {colors: colors, locations: locations, start: start, end: end};    
+}
+export const cssToSvgGradient = gradientString => {
+    if(!gradientString) return;
+    const data = gradientString.replace('linear-gradient(', '').replace(')', '').replaceAll(' ', '').split('deg,');
+    const angle = 90 - parseInt(data[0]);
+    const colors = data[1].split(',');
+    return generateGradient({colors: colors, angle: angle, svg: true});
+}
+//The purpose of this module is to generate ios shadows equivalent to the ones generated with Android 'elevation' property
+//Shadow does not work well with TouchableOpacity, displays inconsistent opacity
+export const generateShadow = (elevation) => {//min elevation 0, max elevation 24. Remove os as input and use internally
+    if(!elevation) return {};
+    if(typeof elevation !== 'number') {console.error('generateShadow: elevation must be a number.'); return {};}
+    if(ONESPECIFICS.os === 'android') return {elevation: elevation};
+    else if (ONESPECIFICS.os === 'ios') return {
+        shadowColor: 'black',
+        shadowOffset: {
+            width: 0,
+            height: elevationn / 2,
+        },
+        shadowOpacity: 0.01739 * elevation + 0.1626,//[1-24] => [0.18, 0.58]
+        shadowRadius: 0.6956 * elevation + 0.3043,//[1-24] => [1, 16]
+    }
+    //https://ethercreative.github.io/react-native-shadow-generator/
+    //Shadow: horizontal offset, vertical offset, blur, spread, color
+    else if(ONESPECIFICS.os === 'web') return '0 ' + elevation / 2 + 'px ' + elevation + 'px ' + elevation / 2 + 'px rgba(0, 0, 0, 0.1)';
+    // else if(ONESPECIFICS.os === 'web') return 'rgba(0, 0, 0, 0.2) 0px ' + Math.ceil(10 / 24 * elevation + 1) + 'px ' + Math.floor(14 / 24 * elevation + 1) + 'px ' + Math.ceil(7 / 24 * elevation) + 'px, ' +
+    //                'rgba(0, 0, 0, 0.14) 0px ' + Math.round(elevation) + 'px ' + Math.ceil(38 / 24 * elevation) + 'px ' + Math.round(3 / 24 * elevation) + 'px, ' +
+    //                'rgba(0, 0, 0, 0.12) 0px ' + Math.round(9 / 24 * elevation) + 'px ' + Math.floor(44 / 24 * elevation) + 'px ' + Math.round(8 / 24 * elevation) + 'px'
+
+    return {};
+}
+export const mergeStyles = (...styles) => {
+    //Array merge
+    // let finalStyle = [];
+    // styles?.forEach(style => {
+    //     if(Array.isArray(style)) finalStyle = [...finalStyle, ...style];
+    //     else if(style && typeof style === 'object') finalStyle.push(style);
+    // });
+    // return finalStyle;
+    //Object merge
+    let finalStyle = {};
+    styles?.forEach((style) => {
+        if(Array.isArray(style)) style.forEach(styleObj => {if(styleObj && typeof styleObj === 'object') finalStyle = {...finalStyle, ...styleObj};});
+         else if(style && typeof style === 'object') finalStyle = {...finalStyle, ...style};
+    });
+    return finalStyle;
+}
+
 
 /**
 * @typedef  {Theme}   Theme                    - A collection of flavors, assigning a value to each of the theme variables.
@@ -1659,9 +1738,10 @@ export const oneTheme = {
         default: { //Flavor name
             //The idea is to have as few parameters as possible so that all components use these paremeters and you are able to customize them with your own flavor.
             //E.g. your texts and your inputs use 'textFont, then you are able to create a 'input' flavor to customize only inputs.
-            primaryColor: '#0077ff', //primary
-            backgroundColor: '#ffffff',//contrast
+            // primaryColor: '#0077ff', //primary
+            background: '#ffffff',//contrast
             neutralColor: '#D9DADC',//#D9DADC #9ba8a7
+            primaryColor: 'linear-gradient(180deg, red, yellow)',
 
             //All the plain text within your components
             textFont: 'Arial, sans-serif',
@@ -1684,12 +1764,12 @@ export const oneTheme = {
         },
         reverse: {
             primaryColor: '#ffffff',
-            backgroundColor: '#0099ff',
+            background: '#0099ff',
         },
         outline: { //For outlined icons and buttons
             fill: 'none',//Transparent
             primaryColor: '#ffffff',
-            backgroundColor: '#0099ff',
+            background: '#0099ff',
             border: '2px solid #0099ff',
         },
         shadow: {
@@ -1708,6 +1788,10 @@ export const oneTheme = {
         }
     }
 };
+
+export const readStyle = styleId => {
+    return ONEJS?.style?.[styleId];
+}
 
 /**
 * @description The object containing the global CSS applying the theme variables to customize the DOM objects. The root level is directly applied to the document body.
@@ -1741,7 +1825,7 @@ export const oneThemeSetup = {
         // textFillColor: 'transparent';
     },
     button: {
-        backgroundColor: themeVariable('primaryColor'),
+        background: themeVariable('primaryColor'),
         color: themeVariable('backgroundColor'),
         fontFamily: themeVariable('textFont'),
         fontSize: themeVariable('textSize'),
@@ -1776,7 +1860,7 @@ export const oneThemeSetup = {
         border: themeVariable('inputBorder'),
         borderRadius: themeVariable('radius'),
         boxShadow: themeVariable('shadow'),
-        backgroundColor: 'white',
+        background: 'white',
         padding: '5px 15px', //only for certain elements
         textDecoration: 'none',
         transitionDuration: '0.4s',
@@ -1800,7 +1884,7 @@ export const oneThemeSetup = {
         border: themeVariable('inputBorder'),
         borderRadius: themeVariable('radius'),
         boxShadow: themeVariable('shadow'),
-        backgroundColor: 'white',
+        background: 'white',
         padding: '10px 15px', 
         resize: 'none',
         overflow: 'auto',
@@ -1818,7 +1902,7 @@ export const oneThemeSetup = {
         '&:not([type]), &[type=color], &[type=date], &[type=datetime-local], &[type=email], &[type=file], &[type=image], &[type=month], &[type=number], &[type=password], &[type=search], &[type=tel], &[type=text], &[type=time], &[type=url], &[type=week]': {
             border: themeVariable('inputBorder'),
             minHeight: 25,
-            backgroundColor: 'white',
+            background: 'white',
             padding: '5px 15px',
             '&::placeholder': { color: themeVariable('neutralColor'), },
             ':focus': {
@@ -1830,7 +1914,7 @@ export const oneThemeSetup = {
             //There's no way of styling it. Best approach is to hide it and style label instead (E.g.: https://codepen.io/ainalem/pen/QzogPe)
         },
         '&[type=button], &[type=reset], &[type=submit]': {
-            backgroundColor: themeVariable('primaryColor'),
+            background: themeVariable('primaryColor'),
             color: themeVariable('backgroundColor'),
             fontFamily: themeVariable('textFont'),
             fontSize: themeVariable('textSize'),
@@ -1857,7 +1941,7 @@ export const oneThemeSetup = {
             },
         },
         '::-webkit-file-upload-button, ::-ms-browse': {
-            backgroundColor: themeVariable('primaryColor'),
+            background: themeVariable('primaryColor'),
             color: themeVariable('backgroundColor'),
             fontSize: themeVariable('textSize'),
             border: themeVariable('border'),
@@ -1877,7 +1961,7 @@ export const oneThemeSetup = {
         outline: 'none',
         width: '50px',
         height: '30px',
-        backgroundColor: '#fff',
+        background: '#fff',
         border: '1px solid #D9DADC',
         borderRadius: '50px',
         boxShadow: 'inset -20px 0 0 0 #fff',
@@ -1913,7 +1997,7 @@ export const oneThemeSetup = {
         height: '2px',
         border: 'none',
         borderRadius: '5px',
-        backgroundColor: themeVariable('primaryColor'),
+        background: themeVariable('primaryColor'),
         outline: 'none',
         opacity: '0.7',
         //WebkitTransition: '.2s',
@@ -1926,7 +2010,7 @@ export const oneThemeSetup = {
             width: '20px',
             height: '20px',
             borderRadius: '50%',
-            backgroundColor: 'white',
+            background: 'white',
             cursor: 'pointer',
             boxShadow: '2px 4px 6px rgba(0,0,0,0.2)',
         },
@@ -1934,8 +2018,241 @@ export const oneThemeSetup = {
             width: '20px',
             height: '20px',
             borderRadius: '50%',
-            backgroundColor: 'white',
+            background: 'white',
             cursor: 'pointer',
         },
     }  
+}
+
+/**
+* @description The object containing the global CSS applying the theme variables to customize the DOM objects. The root level is directly applied to the document body.
+* @type {Object}
+* @example
+* const themeSetup = {p: {color: themeVariable('primaryColor')}};
+*/
+ const oneStyle = (theme) => {
+    return {
+        //These styles get placed on the Document 'body' element
+        fontFamily: readFlavor('default').textFont,
+        fontSize: readFlavor('default').textSize,
+        color: readFlavor('default').textColor,
+        margin: 0,
+        minHeight: '100vh',
+        display: 'flex',               //Flexbox is the positioning being used
+        flexWrap: 'wrap',              //We want items to fall into a different row once exhausted the space on the parent
+        flexGrow: '0',                 //It indicates how much they expand horizontally. By default we don't want it to grow
+        flexShrink: '0',               //We don't want items to go smaller than their original width
+        flexDirection: 'column',       //Row or column
+        justifyContent: 'flex-start',  //Horizontal alignment of the items
+        alignItems: 'stretch',         //Vertical alignment of the items
+        alignContent: 'stretch',       //Vertical alignment of the items   
+
+        p: {
+            fontFamily: readFlavor('default').textFont,
+            fontSize: readFlavor('default').textSize,
+            color: readFlavor('default').textGradient ? 'transparent' : readFlavor('default').textColor,
+            //Code below could be used to enable gradient text
+            background: readFlavor('default').textGradient ?? 'none',
+            backgroundClip: readFlavor('default').textGradient ? 'text' : undefined,
+            // textFillColor: 'transparent';
+        },
+        button: {
+            background: readFlavor('default').primaryGradient ?? readFlavor('default').primaryColor,
+            color: readFlavor('default').backgroundColor,
+            fontFamily: readFlavor('default').textFont,
+            fontSize: readFlavor('default').textSize,
+            border: readFlavor('default').border,
+            borderRadius: readFlavor('default').radius,
+            boxShadow: readFlavor('default').shadow,
+            // minHeight: 30,
+            padding: '10px 15px',
+            textDecoration: 'none',
+            transitionDuration: '0.4s',
+            cursor: 'pointer',
+            
+            ':hover': {
+                filter: 'brightness(110%)',
+            },
+            ':active': {
+                filter: 'brightness(90%)',
+            },
+            ':focus': {
+                outline: 'none',
+            },
+            '.disabled':  {
+              opacity: 0.6,
+              cursor: 'not-allowed',
+            },
+        },
+        select: {
+            // appearance: 'none',
+            color: readFlavor('default').textColor,
+            fontFamily: readFlavor('default').textFont,
+            fontSize: readFlavor('default').textSize,
+            border: readFlavor('default').inputBorder,
+            borderRadius: readFlavor('default').radius,
+            boxShadow: readFlavor('default').shadow,
+            background: 'white',
+            padding: '5px 15px', //only for certain elements
+            textDecoration: 'none',
+            transitionDuration: '0.4s',
+            minHeight: 25,
+            cursor: 'pointer',
+            ':hover': {
+            },
+            ':focus': {
+                outline: 'none',
+                borderColor: readFlavor('default').primaryColor,
+            },
+            '& option:checked': {
+            },
+            '& option': {
+            }
+        },
+        textarea: {
+            color: readFlavor('default').textColor,
+            fontFamily: readFlavor('default').textFont,
+            fontSize: readFlavor('default').textSize,
+            border: readFlavor('default').inputBorder,
+            borderRadius: readFlavor('default').radius,
+            boxShadow: readFlavor('default').shadow,
+            background: 'white',
+            padding: '10px 15px', 
+            resize: 'none',
+            overflow: 'auto',
+        },
+        input: {
+            color: readFlavor('default').textColor,
+            fontFamily: readFlavor('default').textFont,
+            fontSize: readFlavor('default').textSize,
+            boxShadow: readFlavor('default').shadow,
+            borderRadius: readFlavor('default').radius,
+            transitionDuration: '0.4s',
+            cursor: 'pointer',
+            textDecoration: 'none',
+            
+            '&:not([type]), &[type=color], &[type=date], &[type=datetime-local], &[type=email], &[type=file], &[type=image], &[type=month], &[type=number], &[type=password], &[type=search], &[type=tel], &[type=text], &[type=time], &[type=url], &[type=week]': {
+                border: readFlavor('default').inputBorder,
+                minHeight: 25,
+                background: 'white',
+                padding: '5px 15px',
+                '&::placeholder': { color: readFlavor('default').neutralColor, },
+                ':focus': {
+                    outline: 'none',
+                    borderColor: readFlavor('default').primaryColor,
+                }, 
+            },
+            '&[type=radio]': {
+                //There's no way of styling it. Best approach is to hide it and style label instead (E.g.: https://codepen.io/ainalem/pen/QzogPe)
+            },
+            '&[type=button], &[type=reset], &[type=submit]': {
+                background: readFlavor('default').primaryGradient ?? readFlavor('default').primaryColor,
+                color: readFlavor('default').backgroundColor,
+                fontFamily: readFlavor('default').textFont,
+                fontSize: readFlavor('default').textSize,
+                border: readFlavor('default').border,
+                borderRadius: readFlavor('default').radius,
+                boxShadow: readFlavor('default').shadow,
+                // minHeight: 30,
+                padding: '10px 15px',
+                textDecoration: 'none',
+                transitionDuration: '0.4s',
+                cursor: 'pointer',
+                ':hover': {
+                    filter: 'brightness(110%)',
+                },
+                ':active': {
+                    filter: 'brightness(90%)',
+                },
+                ':focus': {
+                    outline: 'none',
+                },
+                '.disabled':  {
+                  opacity: 0.6,
+                  cursor: 'not-allowed',
+                },
+            },
+            '::-webkit-file-upload-button, ::-ms-browse': {
+                background: readFlavor('default').primaryGradient ?? readFlavor('default').primaryColor,
+                color: readFlavor('default').backgroundColor,
+                fontSize: readFlavor('default').textSize,
+                border: readFlavor('default').border,
+                borderRadius: readFlavor('default').radius,
+                boxShadow: readFlavor('default').shadow,
+                // minHeight: 30,
+                padding: '10px 15px',
+                textDecoration: 'none',
+                transitionDuration: '0.4s',
+                cursor: 'pointer',
+            },
+       
+        },
+        'input[type="checkbox"]': {
+            position: 'relative',
+            appearance: 'none',
+            outline: 'none',
+            width: '50px',
+            height: '30px',
+            background: '#fff',
+            border: '1px solid #D9DADC',
+            borderRadius: '50px',
+            boxShadow: 'inset -20px 0 0 0 #fff',
+            transitionDuration: '0.4s',
+            ':after': {
+                'content': '""',
+                position: 'absolute',
+                top: '1px',
+                left: '1px',
+                background: 'transparent',
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                boxShadow: '2px 4px 6px rgba(0,0,0,0.2)',
+            },
+            '&:checked': {
+                boxShadow: 'inset 20px 0 0 0 ' + readFlavor('default').primaryColor,
+                borderColor: readFlavor('default').primaryColor,
+            },
+            '&:checked:after': {
+                left: '20px',
+                boxShadow: '-2px 4px 3px rgba(0,0,0,0.05)',
+            },
+            ':focus': {
+                outline: 'none',
+                borderColor: readFlavor('default').primaryColor,
+            },
+        },
+        'input[type="range"]': {
+            padding: 0,
+            appearance: 'none',
+            width: '100%',
+            height: '2px',
+            border: 'none',
+            borderRadius: '5px',
+            background: readFlavor('default').primaryColor,
+            outline: 'none',
+            opacity: '0.7',
+            //WebkitTransition: '.2s',
+            transition: 'opacity .2s',
+            '&:hover': {
+                opacity: 1,
+            },
+            '&::-webkit-slider-thumb': {
+                appearance: 'none',
+                width: '20px',
+                height: '20px',
+                borderRadius: '50%',
+                background: 'white',
+                cursor: 'pointer',
+                boxShadow: '2px 4px 6px rgba(0,0,0,0.2)',
+            },
+            '&::-moz-range-thumb': {
+                width: '20px',
+                height: '20px',
+                borderRadius: '50%',
+                background: 'white',
+                cursor: 'pointer',
+            },
+        }  
+    };
 }
