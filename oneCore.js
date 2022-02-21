@@ -9,7 +9,7 @@
 import React from 'react';
 
 //Web vs Native specific differences
-import {ONESPECIFICS} from './oneSpecifics.js';
+import {ONESPECIFICS} from '@onejs-dev/onespecifics';
 
 //Conditionally import Firestore
 try {         
