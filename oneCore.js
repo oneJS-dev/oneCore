@@ -9,7 +9,7 @@
 import React from 'react';
 
 //Web vs Native specific differences
-import {ONESPECIFICS} from './oneSpecifics';
+import {ONESPECIFICS} from './oneSpecifics.js';
 
 //Conditionally import Firestore
 try {         
@@ -22,14 +22,6 @@ try {
 catch (warning) {
     console.warn("No Firestore module imported. If this is intentional, please disregard this warning: ", warning)
 }
-// export const fire = firebaseImports;
-// console.log(fire);
-// try {
-    
-//     // do stuff
-// } catch (warning) {
-//     // handleErr(ex);
-// }
 
 /**
 * @description All the module internal global variables are properties of the ONEJS object. 
@@ -749,7 +741,6 @@ export const read = (stateId) => {
 * ```
 */ 
 const write = (stateId, newValue, context = '', action='update', documentId) => {
-    console.log(doc)
     const oldValue = ONEJS.currentState[stateId].value;
     if(oldValue === newValue) return;
     
