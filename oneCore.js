@@ -9,13 +9,27 @@
 import React from 'react';
 
 //Web vs Native specific differences
-import {ONESPECIFICS} from '@onejs-dev/onespecifics';
+import {ONESPECIFICS} from './oneSpecifics';
 
 //Conditionally import Firestore
-try {var {doc, collection, addDoc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot} = await import('firebase/firestore');}
-catch (warning) {
-    // console.warn("No Firestore module imported. If this is intentional, please disregard this warning: ", warning)
+try {         
+    if(ONESPECIFICS.os === 'android' || ONESPECIFICS.os === 'ios')
+        var {doc, collection, addDoc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot} = require('firebase/firestore');
+    else if(ONESPECIFICS.os === 'web' && ONESPECIFICS.firestore) {
+       var {doc, collection, addDoc, setDoc, getDoc, deleteDoc, getDocs, onSnapshot} = ONESPECIFICS.firestore;
+    }
 }
+catch (warning) {
+    console.warn("No Firestore module imported. If this is intentional, please disregard this warning: ", warning)
+}
+// export const fire = firebaseImports;
+// console.log(fire);
+// try {
+    
+//     // do stuff
+// } catch (warning) {
+//     // handleErr(ex);
+// }
 
 /**
 * @description All the module internal global variables are properties of the ONEJS object. 
@@ -735,6 +749,7 @@ export const read = (stateId) => {
 * ```
 */ 
 const write = (stateId, newValue, context = '', action='update', documentId) => {
+    console.log(doc)
     const oldValue = ONEJS.currentState[stateId].value;
     if(oldValue === newValue) return;
     
@@ -1536,7 +1551,7 @@ export const readFlavor = (flavor, theme) => {
         });
     }
     //For web transform into theme variables
-    const flavorObject = {};//Used inside EnhancedComponent to read the flavor CSS and add a class with the variable values.
+    let flavorObject = {};//Used inside EnhancedComponent to read the flavor CSS and add a class with the variable values.
     if(Array.isArray(flavor)) {//Flavor is an array of strings: Increasing priority from left to right
         flavor.forEach((flavor) => {flavorObject = {...flavorObject, ...theme[flavor]} });
         return {...theme['default'], ...flavorObject};
