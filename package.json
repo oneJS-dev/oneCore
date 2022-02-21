@@ -1,6 +1,6 @@
 {
   "name": "@onejs-dev/onecore",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Core package for oneJS.",
   "main": "oneCore.js",
   "scripts": {
